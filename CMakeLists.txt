@@ -1,7 +1,7 @@
 # ---- Project Info ----
 
 cmake_minimum_required(VERSION 3.10)
-project(stb VERSION 0.2.0)
+project(stb VERSION 0.2.1)
 
 # ---- Set modifiable variables ----
 
@@ -58,15 +58,6 @@ set(STB_DIR "${CMAKE_CURRENT_BINARY_DIR}/.stb")
 set(EMPTY_SRC "${STB_DIR}/empty.c")
 file(WRITE "${EMPTY_SRC}" "")
 
-function(copy_library LIBRARY_NAME)
-    set(LIBRARY_DIR "${STB_DIR}/include/${LIBRARY_NAME}")
-    file(MAKE_DIRECTORY "${LIBRARY_DIR}")
-
-    configure_file("${stb_SOURCE_DIR}/stb_${LIBRARY_NAME}.h" "${LIBRARY_DIR}" COPYONLY)
-    
-    set(LIBRARY_DIR "${LIBRARY_DIR}" PARENT_SCOPE)
-endfunction()
-
 macro(format_library LIBRARY_NAME)
     set(STB_LIB_NAME stb_${LIBRARY_NAME})
 
@@ -81,10 +72,8 @@ function(add_simple_library LIBRARY_NAME)
     string(TOUPPER ${LIBRARY_NAME} UPPER_LIB_NAME)
 
     if (EXISTS "${stb_SOURCE_DIR}/${STB_LIB_NAME}.h") # Library may not exist on older versions
-        copy_library(${LIBRARY_NAME})
-
         add_library                 (${STB_LIB_NAME} STATIC "${EMPTY_SRC}")
-        target_include_directories  (${STB_LIB_NAME} INTERFACE "${LIBRARY_DIR}")
+        target_include_directories  (${STB_LIB_NAME} INTERFACE "${stb_SOURCE_DIR}")
         
         format_library(${LIBRARY_NAME})
     endif()
@@ -117,13 +106,8 @@ add_simple_library(voxel_render)
 # ------ stb_vorbis.c ------
 
 if (EXISTS "${stb_SOURCE_DIR}/stb_vorbis.c")
-    set(LIBRARY_DIR "${STB_DIR}/include/vorbis")
-    file(MAKE_DIRECTORY "${LIBRARY_DIR}")
-
-    configure_file("${stb_SOURCE_DIR}/stb_vorbis.c" "${LIBRARY_DIR}" COPYONLY)
-
     add_library                 (stb_vorbis STATIC "${stb_SOURCE_DIR}/stb_vorbis.c")
-    target_include_directories  (stb_vorbis PUBLIC "${LIBRARY_DIR}")
+    target_include_directories  (stb_vorbis PUBLIC "${stb_SOURCE_DIR}")
     target_compile_definitions  (stb_vorbis INTERFACE STB_VORBIS_HEADER_ONLY)
     
     format_library(vorbis)
