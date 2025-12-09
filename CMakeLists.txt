@@ -1,7 +1,7 @@
 # ---- Project Info ----
 
 cmake_minimum_required(VERSION 3.10)
-project(stb)
+project(stb VERSION 0.2.0)
 
 # ---- Set modifiable variables ----
 
@@ -35,7 +35,7 @@ if (NOT CURRENT_CPM_VALID)
     file(DOWNLOAD
         "https://github.com/cpm-cmake/CPM.cmake/releases/download/v${CPM_VERSION}/get_cpm.cmake"
         "${_cpm_file}"
-        EXPECTED_HASH "MD5=${CPM_HASH}"
+        EXPECTED_HASH MD5=${CPM_HASH}
         SHOW_PROGRESS
     )
 endif()
@@ -47,39 +47,48 @@ include("${_cpm_file}")
 CPMAddPackage(
     stb
     GIT_REPOSITORY https://github.com/nothings/stb.git
-    GIT_TAG "${STB_COMMIT}"
+    GIT_TAG ${STB_COMMIT}
     DOWNLOAD_ONLY
 )
 
 # ---- Include simple STB libs ----
 
-macro(copy_library LIBRARY_NAME)
-    set(LIBRARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/stb/${LIBRARY_NAME}")
-    configure_file("${stb_SOURCE_DIR}/stb_${LIBRARY_NAME}.h" "${LIBRARY_DIR}/stb_${LIBRARY_NAME}.h" COPYONLY)
-endmacro()
+set(STB_DIR "${CMAKE_CURRENT_BINARY_DIR}/.stb")
+
+set(EMPTY_SRC "${STB_DIR}/empty.c")
+file(WRITE "${EMPTY_SRC}" "")
+
+function(copy_library LIBRARY_NAME)
+    set(LIBRARY_DIR "${STB_DIR}/include/${LIBRARY_NAME}")
+    file(MAKE_DIRECTORY "${LIBRARY_DIR}")
+
+    configure_file("${stb_SOURCE_DIR}/stb_${LIBRARY_NAME}.h" "${LIBRARY_DIR}" COPYONLY)
+    
+    set(LIBRARY_DIR "${LIBRARY_DIR}" PARENT_SCOPE)
+endfunction()
 
 macro(format_library LIBRARY_NAME)
-    set(STB_LIB_NAME "stb_${LIBRARY_NAME}")
+    set(STB_LIB_NAME stb_${LIBRARY_NAME})
 
-    target_compile_definitions("${STB_LIB_NAME}" PRIVATE "STB_${UPPER_LIB_NAME}_IMPLEMENTATION")
-    add_library("stb::${LIBRARY_NAME}" ALIAS "${STB_LIB_NAME}")
+    target_compile_definitions(${STB_LIB_NAME} PRIVATE STB_${UPPER_LIB_NAME}_IMPLEMENTATION)
+    add_library(stb::${LIBRARY_NAME} ALIAS ${STB_LIB_NAME})
 
-    list(APPEND STB_LIB_LIST "${STB_LIB_NAME}")
+    list(APPEND STB_LIB_LIST stb::${LIBRARY_NAME})
 endmacro()
 
-macro(add_simple_library LIBRARY_NAME)
-    set(STB_LIB_NAME "stb_${LIBRARY_NAME}")
-    string(TOUPPER "${LIBRARY_NAME}" UPPER_LIB_NAME)
+function(add_simple_library LIBRARY_NAME)
+    set(STB_LIB_NAME stb_${LIBRARY_NAME})
+    string(TOUPPER ${LIBRARY_NAME} UPPER_LIB_NAME)
 
     if (EXISTS "${stb_SOURCE_DIR}/${STB_LIB_NAME}.h") # Library may not exist on older versions
-        copy_library("${LIBRARY_NAME}")
+        copy_library(${LIBRARY_NAME})
 
-        add_library                 ("${STB_LIB_NAME}" STATIC "${CMAKE_CURRENT_SOURCE_DIR}/empty.c")
-        target_include_directories  ("${STB_LIB_NAME}" INTERFACE "${LIBRARY_DIR}")
+        add_library                 (${STB_LIB_NAME} STATIC "${EMPTY_SRC}")
+        target_include_directories  (${STB_LIB_NAME} INTERFACE "${LIBRARY_DIR}")
         
-        format_library("${LIBRARY_NAME}")
+        format_library(${LIBRARY_NAME})
     endif()
-endmacro()
+endfunction()
 
 add_simple_library(c_lexer)
 add_simple_library(connected_components)
@@ -108,8 +117,10 @@ add_simple_library(voxel_render)
 # ------ stb_vorbis.c ------
 
 if (EXISTS "${stb_SOURCE_DIR}/stb_vorbis.c")
-    set(LIBRARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/stb/vorbis")
-    configure_file("${stb_SOURCE_DIR}/stb_vorbis.c" "${LIBRARY_DIR}/stb_vorbis.c" COPYONLY)
+    set(LIBRARY_DIR "${STB_DIR}/include/vorbis")
+    file(MAKE_DIRECTORY "${LIBRARY_DIR}")
+
+    configure_file("${stb_SOURCE_DIR}/stb_vorbis.c" "${LIBRARY_DIR}" COPYONLY)
 
     add_library                 (stb_vorbis STATIC "${stb_SOURCE_DIR}/stb_vorbis.c")
     target_include_directories  (stb_vorbis PUBLIC "${LIBRARY_DIR}")
@@ -121,7 +132,7 @@ endif()
 # ------ stb_image_resize2.h ------
 
 if (EXISTS "${stb_SOURCE_DIR}/stb_image_resize2.h")
-    target_compile_definitions(stb_image_resize2 PRIVATE "STB_IMAGE_RESIZE_IMPLEMENTATION")
+    target_compile_definitions(stb_image_resize2 PRIVATE STB_IMAGE_RESIZE_IMPLEMENTATION)
 endif()
 
 # ---- Add stb::all ----
